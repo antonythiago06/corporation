@@ -3,11 +3,18 @@ import { SolicitacoesService } from './solicitacoes.service';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { Body, Post } from '@nestjs/common';
+import { CriarSolicitacaoDto } from './dto/criar-solicitacao.dto';
 
 @Controller('solicitacoes')
 export class SolicitacoesController {
   constructor(private readonly solicitacoesService: SolicitacoesService) {}
 
+@UseGuards(JwtAuthGuard)
+@Post()
+criar(@Body() dto: CriarSolicitacaoDto) {
+  return this.solicitacoesService.criar(dto);
+}
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('gestor', 'auditor')

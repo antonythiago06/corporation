@@ -1,43 +1,59 @@
 
 import { Injectable, NotFoundException } from '@nestjs/common';
-
-export type Solicitacao = {
-  id: number;
-  descricao: string;
-  status: 'pendente' | 'aprovada';
-};
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { CriarSolicitacaoDto } from './dto/criar-solicitacao.dto';
+import { Solicitacao } from './solicitacao.entity';
 
 @Injectable()
 export class SolicitacoesService {
-  private solicitacoes: Solicitacao[] = [
-    { id: 1, descricao: 'Compra de Monitor', status: 'pendente' },
-  ];
+  constructor(
+    @InjectRepository(Solicitacao)
+    private readonly repository: Repository<Solicitacao>,
+  ) {}
 
-  buscarPorId(id: number) {
-    const solicitacao = this.solicitacoes.find((s) => s.id === id);
+  listar() {
+    return this.repository.find({ order: { id: 'ASC' } });
+  }
+
+  async buscarPorId(id: number) {
+    const solicitacao = await this.repository.findOneBy({ id });
     if (!solicitacao) {
       throw new NotFoundException('Solicitação não encontrada');
     }
     return solicitacao;
   }
 
-aprovar(id: number) {
-  const solicitacao = this.buscarPorId(id);
-  solicitacao.status = 'aprovada';
-  return solicitacao;
-    }
+  criar(dto: CriarSolicitacaoDto) {
+    const solicitacao = this.repository.create({
+      titulo: dto.titulo,
+      centroCusto: dto.centroCusto,
+      status: 'pendente',
+    });
+    return this.repository.save(solicitacao);
+  }
 
+   async aprovar(id: number) {
+    const solicitacao = await this.buscarPorId(id);
+    solicitacao.status = 'aprovada';
+    return this.repository.save(solicitacao);
+  }
+  async gerarRelatorio() {
+    const solicitacoes = await this.repository.find();
+    const total = solicitacoes.length;
 
-gerarRelatorio() {
-    const total = this.solicitacoes.length;
-    const porStatus = this.solicitacoes.reduce(
+    const porStatus = solicitacoes.reduce(
       (acc, s) => {
         acc[s.status] = (acc[s.status] || 0) + 1;
         return acc;
       },
-      { pendente: 0, aprovada: 0 },
+      { pendente: 0, aprovada: 0 } as Record<string, number>,
     );
 
-    return { total,porStatus};
+    return { total, porStatus };
   }
 }
+
+
+
+
