@@ -1,10 +1,12 @@
-import {  Controller,  Patch,  Param,  ParseIntPipe, UseGuards, Get } from '@nestjs/common';
+import {  Controller,  Patch,  Param,  ParseIntPipe, UseGuards, Get, Query } from '@nestjs/common';
 import { SolicitacoesService } from './solicitacoes.service';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Body, Post } from '@nestjs/common';
+import { Delete } from '@nestjs/common';
 import { CriarSolicitacaoDto } from './dto/criar-solicitacao.dto';
+import { FiltrarSolicitacaoDto } from './dto/filtrar-solicitacao.dto';
 
 @Controller('solicitacoes')
 export class SolicitacoesController {
@@ -15,6 +17,20 @@ export class SolicitacoesController {
 criar(@Body() dto: CriarSolicitacaoDto) {
   return this.solicitacoesService.criar(dto);
 }
+
+@UseGuards(JwtAuthGuard)
+@Get()
+  listar(@Query() filtros: FiltrarSolicitacaoDto) {
+    return this.solicitacoesService.listar(filtros);
+  }
+
+@UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('gestor') 
+  @Delete(':id')
+  async remover(@Param('id', ParseIntPipe) id: number) {
+    await this.solicitacoesService.remover(id);
+    return { mensagem: `Solicitação ${id} removida com sucesso.` };
+  }  
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('gestor', 'auditor')
