@@ -3,11 +3,14 @@ import { SolicitacoesService } from './solicitacoes.service';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { Body, Post } from '@nestjs/common';
-import { Delete } from '@nestjs/common';
+import { Body, Post, Req, Delete } from '@nestjs/common';
+import { AprovarSolicitacaoDto } from './dto/aprovar-solicitacao.dto';
 import { CriarSolicitacaoDto } from './dto/criar-solicitacao.dto';
 import { FiltrarSolicitacaoDto } from './dto/filtrar-solicitacao.dto';
 
+type RequisicaoAutenticada = {
+  user: { id: number; papel: string };
+};
 @Controller('solicitacoes')
 export class SolicitacoesController {
   constructor(private readonly solicitacoesService: SolicitacoesService) {}
@@ -46,10 +49,16 @@ criar(@Body() dto: CriarSolicitacaoDto) {
     return this.solicitacoesService.buscarPorId(id);
   }
 
+
+
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('gestor')
 @Patch(':id/aprovar')
-aprovar(@Param('id', ParseIntPipe) id: number) {
-  return this.solicitacoesService.aprovar(id);
-    }
+aprovar(
+  @Param('id', ParseIntPipe) id: number,
+  @Body() dto: AprovarSolicitacaoDto,
+  @Req() request: RequisicaoAutenticada,
+) {
+  return this.solicitacoesService.aprovar(id, dto.versao, request.user.id);
+}
 }
