@@ -4,6 +4,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CriarSolicitacaoDto } from './dto/criar-solicitacao.dto';
 import { Solicitacao } from './solicitacao.entity';
+import { FiltrarSolicitacaoDto } from './dto/filtrar-solicitacao.dto';
+
 
 @Injectable()
 export class SolicitacoesService {
@@ -12,8 +14,15 @@ export class SolicitacoesService {
     private readonly repository: Repository<Solicitacao>,
   ) {}
 
-  listar() {
-    return this.repository.find({ order: { id: 'ASC' } });
+  listar(filtros?: FiltrarSolicitacaoDto) {
+    return this.repository.find({
+      where: {
+        ...(filtros?.status && { status: filtros.status }),
+        ...(filtros?.centroCusto && { centroCusto: filtros.centroCusto }),
+        ...(filtros?.prioridade && { prioridade: filtros.prioridade }),
+      },
+      order: { id: 'ASC' },
+    });
   }
 
   async buscarPorId(id: number) {
@@ -29,8 +38,14 @@ export class SolicitacoesService {
       titulo: dto.titulo,
       centroCusto: dto.centroCusto,
       status: 'pendente',
+      prioridade: dto.prioridade,
     });
     return this.repository.save(solicitacao);
+  }
+  async remover(id: number): Promise<void> {
+    await this.buscarPorId(id); 
+
+    await this.repository.delete(id);
   }
 
    async aprovar(id: number) {
@@ -50,6 +65,7 @@ export class SolicitacoesService {
       { pendente: 0, aprovada: 0 } as Record<string, number>,
     );
 
+    
     return { total, porStatus };
   }
 }
