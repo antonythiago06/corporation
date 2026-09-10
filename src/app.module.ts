@@ -1,3 +1,4 @@
+
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -18,6 +19,8 @@ import { TypeOrmModule } from 'node_modules/@nestjs/typeorm/dist/typeorm.module'
         password: config.getOrThrow<string>('DB_PASSWORD'),
         autoLoadEntities: true,
         synchronize: true,
+        migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
+        migrationsRun: true,
       }),}), AuthModule, UsuariosModule, SolicitacoesModule ],
   controllers: [AppController],
   providers: [AppService],
