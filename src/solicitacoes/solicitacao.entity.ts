@@ -1,6 +1,7 @@
 import {Column,CreateDateColumn,Entity,PrimaryGeneratedColumn,UpdateDateColumn, VersionColumn } from 'typeorm';
 
 export type StatusSolicitacao = 'pendente' | 'aprovada';
+export type PrioridadeSolicitacao = 'normal' | 'urgente';
 
 @Entity({ name: 'solicitacoes' })
 export class Solicitacao {
@@ -24,4 +25,7 @@ export class Solicitacao {
 
   @Column({ name: 'centro_custo', type: 'varchar', length: 30 })
   centroCusto!: string;
+
+  @Column({ name: 'prioridade', type: 'varchar', length: 10, default: 'normal' })
+  prioridade!: PrioridadeSolicitacao;
 }
