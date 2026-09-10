@@ -9,4 +9,8 @@ export class CriarSolicitacaoDto {
   @IsString()
   @MaxLength(30)
   centroCusto!: string;
+
+  @IsString()
+  @MaxLength(10)
+  prioridade!: 'normal' | 'urgente';
 }
