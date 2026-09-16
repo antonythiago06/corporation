@@ -46,6 +46,16 @@ export class UsuariosService {
       papel: 'auditor',
       ativo: true,
       matricula: '20261457'
+    },
+    {
+      id: 4,
+      nome: 'Carlos Martins',
+      email: 'carlos@empresa.com',
+      senhaHash:
+        '$2b$12$5S9LDbR3FznMAsZY5P..2OKE932dOHeVvGrmlfklgquClbkKgUidC',
+      papel: 'gestor',
+      ativo: true,
+      matricula: '20261458'
     }
   ];
 
