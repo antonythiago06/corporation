@@ -5,6 +5,8 @@ import { Repository, DataSource } from 'typeorm';
 import { CriarSolicitacaoDto } from './dto/criar-solicitacao.dto';
 import { Solicitacao } from './solicitacao.entity';
 import { Auditoria } from '../auditoria/auditoria.entity';
+import { RejeitarSolicitacaoDto } from './dto/rejeitar-solicitacao.dto';
+import { AprovarSolicitacaoDto } from './dto/aprovar-solicitacao.dto';
 import { FiltrarSolicitacaoDto } from './dto/filtrar-solicitacao.dto';
 
 
@@ -75,7 +77,6 @@ export class SolicitacoesService {
         'A solicitação foi alterada; consulte novamente',
       );
     }
-
     await manager.insert(Auditoria, {
       atorId,
       acao: 'SOLICITACAO_APROVADA',
@@ -90,7 +91,47 @@ export class SolicitacoesService {
 
     return manager.findOneByOrFail(Solicitacao, { id });
   });
+}
+  async rejeitar(id: number, versaoEsperada: number, justificativa: string, atorId: number) {
+  return this.dataSource.transaction(async (manager) => {
+    const solicitacao = await manager.findOneBy(Solicitacao, { id });
+    if (!solicitacao) {
+      throw new NotFoundException('Solicitação não encontrada');
+    }
+    if (solicitacao.status !== 'pendente') {
+      throw new ConflictException('Solicitação não está pendente');
+    }
+    const resultado = await manager
+      .createQueryBuilder()
+      .update(Solicitacao)
+      .set({ status: () => "'rejeitada'", versao: () => 'versao + 1' })
+      .where('id = :id', { id })
+      .andWhere('versao = :versao', { versao: versaoEsperada })
+      .andWhere('status = :status', { status: 'pendente' })
+      .execute();
+    
+     if (resultado.affected !== 1) {
+      throw new ConflictException(
+        'A solicitação foi alterada; consulte novamente',
+      );
+    }
 
+      await manager.insert(Auditoria, {
+        atorId,
+        acao: 'SOLICITACAO_REJEITADA',
+        recursoTipo: 'solicitacao',
+        recursoId: id,
+        detalhes: {
+          statusAnterior: 'pendente',
+          statusAtual: 'rejeitada',
+          versaoAnterior: versaoEsperada,
+          justificativa,
+        },
+        });
+      return manager.findOneByOrFail(Solicitacao, { id });
+
+  });
+  
   }
   async gerarRelatorio() {
     const solicitacoes = await this.repository.find();
