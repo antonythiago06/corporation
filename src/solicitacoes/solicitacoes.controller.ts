@@ -60,7 +60,7 @@ aprovar(
   @Body() dto: AprovarSolicitacaoDto,
   @Req() request: RequisicaoAutenticada,
 ) {
-  return this.solicitacoesService.aprovar(id, dto.versao, request.user.id);
+  return this.solicitacoesService.aprovar(id, dto.versao, dto.versaoCentroCusto, request.user.id);
 }
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -71,6 +71,6 @@ rejeitar(
   @Body() dto: RejeitarSolicitacaoDto,
   @Req() request: RequisicaoAutenticada,
 ) {
-  return this.solicitacoesService.rejeitar(id, dto.versao, dto.justificativa, request.user.id);
+  return this.solicitacoesService.rejeitar(id, dto.versao,dto.justificativa, request.user.id);
 }
 }
