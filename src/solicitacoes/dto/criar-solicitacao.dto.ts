@@ -1,4 +1,4 @@
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import { IsString, MaxLength, MinLength, IsInt, Min } from 'class-validator';
 
 export class CriarSolicitacaoDto {
   @IsString()
@@ -10,6 +10,10 @@ export class CriarSolicitacaoDto {
   @MaxLength(30)
   centroCusto!: string;
 
+  @IsInt()
+  @Min(0)
+  valorEstimadoCentavos!: number;
+  
   @IsString()
   @MaxLength(10)
   prioridade!: 'normal' | 'urgente';
