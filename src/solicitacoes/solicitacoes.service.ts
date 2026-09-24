@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { CriarSolicitacaoDto } from './dto/criar-solicitacao.dto';
 import { Solicitacao } from './solicitacao.entity';
+import { CentroCusto } from 'src/centro-custo/centro-custo.entity';
 import { Auditoria } from '../auditoria/auditoria.entity';
 import { RejeitarSolicitacaoDto } from './dto/rejeitar-solicitacao.dto';
 import { AprovarSolicitacaoDto } from './dto/aprovar-solicitacao.dto';
@@ -15,6 +16,8 @@ export class SolicitacoesService {
   constructor(
     @InjectRepository(Solicitacao)
     private readonly repository: Repository<Solicitacao>,
+    @InjectRepository(CentroCusto)
+    private readonly centroCustoRepository: Repository<CentroCusto>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -41,6 +44,7 @@ export class SolicitacoesService {
     const solicitacao = this.repository.create({
       titulo: dto.titulo,
       centroCusto: dto.centroCusto,
+      valorEstimadoCentavos: dto.valorEstimadoCentavos,
       status: 'pendente',
       prioridade: dto.prioridade,
     });
@@ -52,7 +56,12 @@ export class SolicitacoesService {
     await this.repository.delete(id);
   }
 
-   async aprovar(id: number, versaoEsperada: number, atorId: number) {
+  async aprovar(
+  id: number,
+  versaoSolicitacao: number,
+  versaoCentroCusto: number,
+  atorId: number,
+) {
   return this.dataSource.transaction(async (manager) => {
     const solicitacao = await manager.findOneBy(Solicitacao, { id });
 
@@ -62,30 +71,92 @@ export class SolicitacoesService {
     if (solicitacao.status !== 'pendente') {
       throw new ConflictException('Solicitação não está pendente');
     }
-
-    const resultado = await manager
-      .createQueryBuilder()
-      .update(Solicitacao)
-      .set({ status: 'aprovada', versao: () => 'versao + 1' })
-      .where('id = :id', { id })
-      .andWhere('versao = :versao', { versao: versaoEsperada })
-      .andWhere('status = :status', { status: 'pendente' })
-      .execute();
-
-    if (resultado.affected !== 1) {
+    if (solicitacao.versao !== versaoSolicitacao) {
       throw new ConflictException(
         'A solicitação foi alterada; consulte novamente',
       );
     }
+
+    const centro = await manager.findOneBy(CentroCusto, {
+      codigo: solicitacao.centroCusto,
+    });
+
+    if (!centro) {
+      throw new NotFoundException('Centro de custo não encontrado');
+    }
+    if (centro.versao !== versaoCentroCusto) {
+      throw new ConflictException(
+        'O centro de custo foi alterado; consulte novamente',
+      );
+    }
+    if (
+      centro.saldoDisponivelCentavos <
+      solicitacao.valorEstimadoCentavos
+    ) {
+      throw new ConflictException('Saldo insuficiente');
+    }
+
+    const saldoAnterior = centro.saldoDisponivelCentavos;
+    const saldoResultante =
+      saldoAnterior - solicitacao.valorEstimadoCentavos;
+
+    const atualizacaoCentro = await manager
+      .createQueryBuilder()
+      .update(CentroCusto)
+      .set({
+        saldoDisponivelCentavos: () =>
+          '"saldo_disponivel_centavos" - :valor',
+        versao: () => '"versao" + 1',
+      })
+      .where('"codigo" = :codigo', { codigo: centro.codigo })
+      .andWhere('"versao" = :versaoCentroCusto', {
+        versaoCentroCusto,
+      })
+      .andWhere('"saldo_disponivel_centavos" >= :valor')
+      .setParameters({
+        valor: solicitacao.valorEstimadoCentavos,
+      })
+      .execute();
+
+    if (atualizacaoCentro.affected !== 1) {
+      throw new ConflictException(
+        'Saldo ou versão foi alterado; consulte novamente',
+      );
+    }
+
+    const atualizacaoSolicitacao = await manager
+      .createQueryBuilder()
+      .update(Solicitacao)
+      .set({
+        status: 'aprovada',
+        versao: () => '"versao" + 1',
+      })
+      .where('"id" = :id', { id })
+      .andWhere('"versao" = :versaoSolicitacao', {
+        versaoSolicitacao,
+      })
+      .andWhere('"status" = :status', { status: 'pendente' })
+      .execute();
+
+    if (atualizacaoSolicitacao.affected !== 1) {
+      throw new ConflictException(
+        'A solicitação foi alterada; consulte novamente',
+      );
+    }
+
     await manager.insert(Auditoria, {
       atorId,
-      acao: 'SOLICITACAO_APROVADA',
+      acao: 'SOLICITACAO_APROVADA_COM_RESERVA',
       recursoTipo: 'solicitacao',
-      recursoId: id,
+      recursoId: solicitacao.id,
       detalhes: {
-        statusAnterior: 'pendente',
-        statusAtual: 'aprovada',
-        versaoAnterior: versaoEsperada,
+        centroCusto: centro.codigo,
+        valorReservadoCentavos:
+          solicitacao.valorEstimadoCentavos,
+        saldoAnteriorCentavos: saldoAnterior,
+        saldoResultanteCentavos: saldoResultante,
+        versaoSolicitacaoUtilizada: versaoSolicitacao,
+        versaoCentroCustoUtilizada: versaoCentroCusto,
       },
     });
 
